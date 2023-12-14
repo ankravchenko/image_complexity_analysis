@@ -286,14 +286,18 @@ def debug_intensity(im):
 # Input file
 
 
-
-cf_all=[]
-cs_all=[]
-random_all=[]
-type0_all=[]
-
+#default
+subset_name=suprematism
 dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
 ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
+cg_type="wavelet"
+
+#FIXME if notempty clause
+#complexity_colour_main.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" wavelet
+subset_name=sys.argv[1]
+dataset_path=sys.argv[2]
+ranking_path=sys.argv[3]
+cg_type=sys.argv[4]
 
 
 ############load sorted files##########################
@@ -305,20 +309,21 @@ list_dir.sort()
 for fname in list_dir:    
 	img = Image.open(dataset_path + '/' + str(fname)+".jpg")
 	image_list_jpg.append(img)
-#############
-
 image_list=[]
 for im in image_list_jpg:
 	image_list.append(np.array(im))#(ImageOps.grayscale(im)))
+#############
 
-complexity_list=[]
-complexity_list_partial=[]
 
 #parse human complexity
 df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
 cnt=0
 
+
+#calculate complexity
+complexity_list=[]
+complexity_list_partial=[]
 
 for im in image_list: 
 
@@ -382,10 +387,10 @@ plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity')
+plt.title(subset_name+' art complexity')
 plt.legend(loc='lower right')
 plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness.png')
+plt.savefig(subset_name+'_complexity_total_wavelets_20_brightness.png')
 
 
 all_features=np.geomspace(1.0,256.0,num=50)#[1,2,4,8,16,32,64,128,256]
@@ -398,6 +403,8 @@ df[features]=complexity_list_partial
 #df1=df.dropna()
 
 
+#FIXME pickle
+
 df['frac']=df['ms_total'].values-df[1.1198188001321776].values
 
 
@@ -409,10 +416,10 @@ plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity (fraction)')
+plt.title(subset_name+' art complexity (fraction)')
 plt.legend(loc='lower right')
 plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness_frac.png')
+plt.savefig(subset_name+'_complexity_total_wavelets_20_brightness_frac.png')
 
 
 
@@ -426,70 +433,17 @@ plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity (fraction)')
+plt.title(subset_name+' complexity (fraction)')
 plt.legend(loc='lower right')
 plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness_frac18.png')
+plt.savefig(subset_name+'_complexity_total_wavelets_20_brightness_frac18.png')
 
 
 
 
-with open('sup_wavelet_complexity_brightness.pickle', 'wb') as handle:
+with open(subset_name+'_wavelet_complexity_brightness.pickle', 'wb') as handle:
     pickle.dump(df, handle)
 
-
-
-
-'''
-x=range(0,df['ms_total'].to_numpy().shape[0])
-y1=df['ms_total'].to_numpy()
-y2=df['blur_total'].to_numpy()
-#y2=df['frac'].to_numpy()
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.ylim(0,0.2)
-plt.xlabel('rank filter')
-plt.ylabel('blur')
-plt.title('suprematism paintings complexity')
-plt.legend(loc='lower right')
-plt.savefig('blur comparison.png')
-
-
-'''
-'''
-y2=df['frac'].to_numpy()
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism paintings complexity (frac)')
-plt.legend(loc='lower right')
-plt.savefig('sup_complexity_total_rank_frac.png')
-
-
-y1_x = ma.masked_array(y1, mask)
-y2_x = ma.masked_array(y2, mask)
-
-plt.clf()
-plt.scatter(y1_x,y2_x,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism paintings complexity, filtered')
-plt.legend(loc='lower right')
-plt.savefig('sup_complexity_filtered_rank.png')
-'''
-'''
-for feature in features:
-	y2=df[feature].to_numpy()
-	plt.clf()
-	plt.ylim=(0,0.1)
-	plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-	plt.xlabel('human ranking')
-	plt.ylabel('multi-scale complexity')
-	plt.title('paintings complexity, grayscale, '+feature)
-	plt.legend(loc='lower right')
-	plt.savefig('sup_complexity_greyscale_'+feature+'.png')
-'''
 
 
 
