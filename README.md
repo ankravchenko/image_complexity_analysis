@@ -3,4 +3,4 @@ Computes dataset multi-scale structural complexity using a variety of coarse gra
 Currently implemented:
 - Gaussian blur
 - Rank filter (median)
-- Wavelet transform (python 2d wavelets)
+- Wavelet transform, python 2d wavelets (py_cwt2d)
