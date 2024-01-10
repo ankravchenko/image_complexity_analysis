@@ -4,12 +4,13 @@ import matplotlib.image as mpimg
 import sys
 import time
 
+from scipy import stats
 from skimage import io, transform
 
 import skimage as ski
 
 import numpy.ma as ma
-
+import csv
 from PIL import Image 
 from PIL import ImageOps
 
@@ -68,7 +69,7 @@ def single_blow_up(img): #FIXME fix that first!
     new_side = 2*side
 
     #blown_up = np.zeros((new_side, new_side))
-    blown_up = transform.resize(img, (new_side,new_side), anti_aliasing=True)
+    blown_up = transform.resize(img, (new_side,new_side), anti_aliasing=False)
     '''
     for iloop in range(new_side):
         for jloop in range(new_side):
@@ -152,7 +153,7 @@ def debug_cg(im):
 	plt.savefig('0debug_gray.png')
 	print("greyscale_printed")
 	###
-	rs = transform.resize(gray, (512,512)) 
+	rs = transform.resize(gray, (512,512), anti_aliasing=False) 
 	###DEBUG
 	plt.clf()
 	plt.imshow(rs, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
@@ -178,70 +179,37 @@ def debug_cg(im):
 	     plt.savefig('debug_'+str(i)+'.png')
 	     i=i+1
 
-# Input file
-
-name = 'Untitled.jpeg'
-
-# Read the file
-
-img = mpimg.imread(name)  
-rs = transform.resize(img, (512,512))   
-gray = rgb2gray(rs)
-
-'''
-img_r=img[:,:,0]
-img_g=img[:,:,1]
-img_b=img[:,:,2]
-
-total_complexity for each
-the sum with coeff
-
-norm=img_r/256
-coeff=np.sum(norm)/(norm.shape[0]*norm.shape[1])
-
-'''
-
-#print("Mean =", np.mean(gray), "STD =", np.std(gray))
-#gray = gray/np.mean(gray)
-#norm = np.einsum('ij,ij', gray, gray)
-#gray = gray/np.sqrt(norm)
-
-#print(np.amax(gray), np.amin(gray))
-#print(len(gray), len(gray[0]))
-
-# Array to save intermediate results
-
-profiles = []
-
-stack_of_patterns = []
-stack_of_patterns.append(gray)
-renorm_pattern = gray
-
-stack = coarse_grain(gray, 6)
-print(len(stack))
-
-for el in stack:
-     print(np.shape(el))
-#     plt.imshow(el, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(el))
-#     plt.show()
-
-print("you are here")
-x = compute_complexities(gray)   # Compute all the complexities for the image
-norm=np.einsum('ij,ij', gray, gray)
-print(x)
-print(norm)
-x1=x[0]/norm
-print(x1)
-
-cf_all=[]
-cs_all=[]
-random_all=[]
-type0_all=[]
-
-dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Scenes/"
-ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_places.xlsx"
 
 
+def regression(x,y):
+	slope, intercept, r, p, std_err = stats.linregress(x, y)
+	y1=slope * x + intercept
+	n=len(y)
+	'''plt.clf()
+	plt.scatter(x, y)
+	plt.plot(x, y1)
+	plt.savefig('regression_frac_test.png') 
+	'''
+	delta=(y1-y).to_numpy()
+	error_sum=0
+	for i in range(len(y)):
+		error_sum=error_sum+delta[i]**2
+	std_pred=np.sqrt(error_sum/len(y))
+	#N is the number of pairs of scores
+	#print statistics
+	#image
+	#standard error of estimate sqrt(sum((prediction - real value)^2)/n)
+
+
+dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
+ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
+
+#complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
+subset_name=sys.argv[1]
+dataset_path=sys.argv[2]
+ranking_path=sys.argv[3]
+#cg_type=sys.argv[4]
+cg_type='blur'
 ############load sorted files##########################
 
 image_list_jpg=[]
@@ -259,13 +227,6 @@ for im in image_list_jpg:
 
 #all 3 colours
 complexity_list=[]
-######FIXME: can be done more optimally########
-complexity_list_0=[]
-complexity_list_1=[]
-complexity_list_2=[]
-complexity_list_3=[]
-complexity_list_4=[]
-###############################################
 complexity_list_partial=[]
 df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
@@ -281,7 +242,7 @@ for im in image_list:
 		coeff=np.sum(norm)/(norm.shape[0]*norm.shape[1]) 
 		im_intensity[j]=coeff
 
-		rs = transform.resize(im_c, (512,512)) 
+		rs = transform.resize(im_c, (512,512), anti_aliasing=False) 
 		norm=np.einsum('ij,ij', rs, rs)
 		#intensity of image/square root of norm
 		rs=rs/np.sqrt(norm)
@@ -293,7 +254,9 @@ for im in image_list:
 		complexity_channels_partial.append(partial)
 
 	cmpl=im_intensity[0]*complexity_channels[0] + im_intensity[1]*complexity_channels[1] + im_intensity[2]*complexity_channels[2]
+	cmpl=cmpl
 	cmpl_partial=im_intensity[0]*np.asarray(complexity_channels_partial[0]) + im_intensity[1]*np.asarray(complexity_channels_partial[1]) + np.asarray(complexity_channels_partial[2])*complexity_channels[2]
+	cmpl_partial=cmpl_partial
 	complexity_list.append(cmpl)
 	complexity_list_partial.append(cmpl_partial)
 
@@ -307,55 +270,136 @@ for im in image_list:
 df['gt']=df['gt'].values
 df['ms_total']=complexity_list
 
-with open('scenes_complexity.pickle', 'wb') as handle:
+#subset_name
+#cg_type
+with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
     pickle.dump(df, handle)
 
+
+features=['512-256', '256-128', '128-64', '64-32', '32-16']
+df[features]=complexity_list_partial
+df['frac']=df['ms_total'].values-df['512-256'].values-df['32-16'].values
+
+df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 
 x=range(0,df['ms_total'].to_numpy().shape[0])
 y1=df['gt'].to_numpy()
 y2=df['ms_total'].to_numpy()
 
-
-
-#y2=df['frac'].to_numpy()
+#human vs calculated complexity
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.ylim(0,0.2)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('scenes complexity')
+plt.title(cg_type+' cg, '+subset_name+' total complexity')
 plt.legend(loc='lower right')
-plt.savefig('scenes_complexity_total_blur.png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
 
-features=['512-256', '256-128', '128-64', '64-32', '32-16']
-df[features]=complexity_list_partial
+#regression
+x=df['ms_total']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
+plt.clf()
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
 
 
-df['frac']=df['ms_total'].values-df['512-256'].values-df['32-16'].values
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
 
 
+y1=df['gt'].to_numpy()
 y2=df['frac'].to_numpy()
+#human vs calculated complexity
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.ylim(0,0.2)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('scenes complexity (frac)')
+plt.title(cg_type+' cg, '+subset_name+' complexity (middle scales)')
 plt.legend(loc='lower right')
-plt.savefig('scenes_complexity_total_blur_frac.png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_frac.eps', format='eps')
 
-
-y1_x = ma.masked_array(y1, mask)
-y2_x = ma.masked_array(y2, mask)
-
+#regression
+x=df['frac']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
 plt.clf()
-plt.scatter(y1_x,y2_x,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('objects complexity, filtered')
-plt.legend(loc='lower right')
-plt.savefig('objects_complexity_filtered_blur.png')
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (middle scales).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_frac.eps', format='eps')
+
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_frac.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
+
+#drop outliers
+idx_to_drop=[]
+fl_o=False
+if subset_name=='suprematism':
+	idx_to_drop=[17, 18, 19, 20, 27, 48, 50, 52, 64, 53, 13]
+	fl_o=True
+if subset_name=='art':
+	idx_to_drop=[380, 225, 30, 86,88,108, 119, 83]
+	fl_o=True
+if subset_name=='scenes':
+	idx_to_drop=[22]
+	fl_o=True
+'''
+msk=(df['gt']<50) & (df['ms_total']>0.025)
+idx_to_drop = df.index[msk]'''
+
+if fl_o:
+	df1=df.drop(idx_to_drop)
+
+	y1=df1['gt'].to_numpy()
+	y2=df1['frac'].to_numpy()
+
+	#human vs calculated complexity
+	plt.clf()
+	plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
+	plt.ylim(0,0.2)
+	plt.xlabel('human ranking')
+	plt.ylabel('multi-scale complexity')
+	plt.title(cg_type+' cg, '+subset_name+' complexity (no outliers)')
+	plt.legend(loc='lower right')
+	plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_filtered.png')
+	plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_filtered.eps', format='eps')
+
+	#regression
+	x=df1['frac']
+	y=df1['gt']
+	slope, intercept, r, p, std_err = stats.linregress(x, y)
+	y1=slope * x + intercept
+	plt.clf()
+	plt.scatter(x, y)
+	plt.plot(x, y1, color='orange')
+	plt.title(cg_type+' cg, '+subset_name+' regression (no outliers).png')
+	plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_filtered.png')
+	plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_filtered.eps', format='eps')
+
+
+	f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_filtered.log', "w")
+	ttt=[slope, intercept, r, p, std_err]
+	print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+	print(*ttt, sep='\t', end='\n', file=f)
+	f.close()
 
 '''
 for feature in features:

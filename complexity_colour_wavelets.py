@@ -22,6 +22,8 @@ import numpy.ma as ma
 from PIL import Image 
 from PIL import ImageOps
 
+
+from scipy import stats
 import os
 
 
@@ -312,6 +314,12 @@ type0_all=[]
 dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
 ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
 
+#complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
+'''subset_name=sys.argv[1]
+dataset_path=sys.argv[2]
+ranking_path=sys.argv[3]'''
+#cg_type=sys.argv[4]
+cg_type='wavelets'
 
 ############load sorted files##########################
 
@@ -451,9 +459,8 @@ plt.savefig('sup_complexity_total_wavelets_20_brightness_frac18.png')
 
 
 
-with open('sup_wavelet_complexity_brightness.pickle', 'wb') as handle:
+with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
     pickle.dump(df, handle)
-
 
 
 
