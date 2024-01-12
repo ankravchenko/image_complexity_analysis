@@ -67,7 +67,7 @@ def coarse_grain(img, depth):
     full_depth = int(np.log2(len(img))) # Estimates the total number of coarse-graining steps that can be done, assuming that we apply 2*2 filter at each step
 
     ###############fix image intensity/brightest point here FIXME
-    333333333333333333333333333
+
     #cg_steps=[1,2,4,8,16,32,64,128,256]#FIXME this is for debug and testing medians other than 2**
     for iloop in range(1, depth):
         #print("cg step "+str(iloop))
@@ -315,9 +315,9 @@ dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Sup
 ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
 
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
-'''subset_name=sys.argv[1]
+subset_name=sys.argv[1]
 dataset_path=sys.argv[2]
-ranking_path=sys.argv[3]'''
+ranking_path=sys.argv[3]
 #cg_type=sys.argv[4]
 cg_type='wavelets'
 
@@ -398,122 +398,91 @@ df['gt']=df['gt'].values
 df['ms_total']=complexity_list
 
 
-
-x=range(0,df['ms_total'].to_numpy().shape[0])
-y1=df['gt'].to_numpy()
-y2=df['ms_total'].to_numpy()
-
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity')
-plt.legend(loc='lower right')
-plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness.png')
-
-
 all_features=np.geomspace(1.0,256.0,num=50)#[1,2,4,8,16,32,64,128,256]
 
 features=all_features[1:len(complexity_list_partial[0])+1]
 df[features]=complexity_list_partial
+
+with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
+    pickle.dump(df, handle)
+
+
+df['frac']=df['ms_total'].values-df[1.1198188001321776].values
+
+
+df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 #df = df.drop(df[df.ms_total>1000].index)
 
 #df1=df.dropna()
 
 
-df['frac']=df['ms_total'].values-df[1.1198188001321776].values
-
 
 x=range(0,df['ms_total'].to_numpy().shape[0])
 y1=df['gt'].to_numpy()
-y2=df['frac'].to_numpy()
+y2=df['ms_total'].to_numpy()
 
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity (fraction)')
-plt.legend(loc='lower right')
-plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness_frac.png')
-
-
-
-
-df['frac18']=df['ms_total'].values-df[1.1198188001321776].values-df[7.667602301926624].values-df[8.586325209634195].values
-
-
-y2=df['frac18'].to_numpy()
-
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism art complexity (fraction)')
-plt.legend(loc='lower right')
-plt.tight_layout()
-plt.savefig('sup_complexity_total_wavelets_20_brightness_frac18.png')
-
-
-
-
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
-
-
-
-'''
-x=range(0,df['ms_total'].to_numpy().shape[0])
-y1=df['ms_total'].to_numpy()
-y2=df['blur_total'].to_numpy()
-#y2=df['frac'].to_numpy()
+#human vs calculated complexity
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
 plt.ylim(0,0.2)
-plt.xlabel('rank filter')
-plt.ylabel('blur')
-plt.title('suprematism paintings complexity')
+plt.xlabel('human ranking')
+plt.ylabel('multi-scale complexity')
+plt.title(cg_type+' cg, '+subset_name+' total complexity')
 plt.legend(loc='lower right')
-plt.savefig('blur comparison.png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
+
+#regression
+x=df['ms_total']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
+plt.clf()
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
 
 
-'''
-'''
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
+
+
+y1=df['gt'].to_numpy()
 y2=df['frac'].to_numpy()
+#human vs calculated complexity
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
+plt.ylim(0,0.2)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title('suprematism paintings complexity (frac)')
+plt.title(cg_type+' cg, '+subset_name+' complexity (middle scales)')
 plt.legend(loc='lower right')
-plt.savefig('sup_complexity_total_rank_frac.png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_frac.eps', format='eps')
 
-
-y1_x = ma.masked_array(y1, mask)
-y2_x = ma.masked_array(y2, mask)
-
+#regression
+x=df['frac']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
 plt.clf()
-plt.scatter(y1_x,y2_x,color='blue', linewidth=2, alpha=0.5)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title('suprematism paintings complexity, filtered')
-plt.legend(loc='lower right')
-plt.savefig('sup_complexity_filtered_rank.png')
-'''
-'''
-for feature in features:
-	y2=df[feature].to_numpy()
-	plt.clf()
-	plt.ylim=(0,0.1)
-	plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-	plt.xlabel('human ranking')
-	plt.ylabel('multi-scale complexity')
-	plt.title('paintings complexity, grayscale, '+feature)
-	plt.legend(loc='lower right')
-	plt.savefig('sup_complexity_greyscale_'+feature+'.png')
-'''
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (middle scales).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_frac.eps', format='eps')
+
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_frac.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
 
 
 
