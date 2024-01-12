@@ -16,6 +16,9 @@ from PIL import ImageOps
 
 import os
 
+import os.path
+
+
 
 import glob
 
@@ -200,9 +203,9 @@ def regression(x,y):
 	#image
 	#standard error of estimate sqrt(sum((prediction - real value)^2)/n)
 
-
-dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
-ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
+subset_name='ad'
+dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Advertisement/"
+ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_ad.xlsx"
 
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
 subset_name=sys.argv[1]
@@ -216,8 +219,11 @@ image_list_jpg=[]
 i=0
 list_dir=[int(file.split(".")[0]) for file in os.listdir(dataset_path)]
 list_dir.sort()
-for fname in list_dir:    
-	img = Image.open(dataset_path + '/' + str(fname)+".jpg")
+for fname in list_dir:   
+	fpath=dataset_path + '/' + str(fname)+".jpg"
+	if (os.path.isfile(fpath)==False):
+		fpath=dataset_path + '/' + str(fname)+".png"
+	img = Image.open(fpath)
 	image_list_jpg.append(img)
 #############
 
@@ -232,33 +238,44 @@ df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
 cnt=0
 for im in image_list: 
-	im_channels=[im[:,:,0], im[:,:,1], im[:,:,2]]#FIXME there's a more elegant way to do this
-	im_intensity=[0, 0, 0]
-	j=0
-	complexity_channels=[]
-	complexity_channels_partial=[]
-	for im_c in im_channels:
-		norm=im_c/256
-		coeff=np.sum(norm)/(norm.shape[0]*norm.shape[1]) 
-		im_intensity[j]=coeff
-
-		rs = transform.resize(im_c, (512,512), anti_aliasing=False) 
+	if len(im.shape) == 2:#for greyscale images
+		rs = transform.resize(im, (512,512), anti_aliasing=False) 
 		norm=np.einsum('ij,ij', rs, rs)
 		#intensity of image/square root of norm
 		rs=rs/np.sqrt(norm)
 		x, partial = compute_complexities(rs)   # Compute all the complexities for the image
 		#print(x)
 
-		j=j+1
-		complexity_channels.append(x)
-		complexity_channels_partial.append(partial)
+		complexity_list.append(x)
+		complexity_list_partial.append(partial)
+	else:
+		im_channels=[im[:,:,0], im[:,:,1], im[:,:,2]]#FIXME there's a more elegant way to do this
+		im_intensity=[0, 0, 0]
+		j=0
+		complexity_channels=[]
+		complexity_channels_partial=[]
+		for im_c in im_channels:
+			norm=im_c/256
+			coeff=np.sum(norm)/(norm.shape[0]*norm.shape[1]) 
+			im_intensity[j]=coeff
 
-	cmpl=im_intensity[0]*complexity_channels[0] + im_intensity[1]*complexity_channels[1] + im_intensity[2]*complexity_channels[2]
-	cmpl=cmpl
-	cmpl_partial=im_intensity[0]*np.asarray(complexity_channels_partial[0]) + im_intensity[1]*np.asarray(complexity_channels_partial[1]) + np.asarray(complexity_channels_partial[2])*complexity_channels[2]
-	cmpl_partial=cmpl_partial
-	complexity_list.append(cmpl)
-	complexity_list_partial.append(cmpl_partial)
+			rs = transform.resize(im_c, (512,512), anti_aliasing=False) 
+			norm=np.einsum('ij,ij', rs, rs)
+			#intensity of image/square root of norm
+			rs=rs/np.sqrt(norm)
+			x, partial = compute_complexities(rs)   # Compute all the complexities for the image
+			#print(x)
+
+			j=j+1
+			complexity_channels.append(x)
+			complexity_channels_partial.append(partial)
+
+		cmpl=im_intensity[0]*complexity_channels[0] + im_intensity[1]*complexity_channels[1] + im_intensity[2]*complexity_channels[2]
+		cmpl=cmpl
+		cmpl_partial=im_intensity[0]*np.asarray(complexity_channels_partial[0]) + im_intensity[1]*np.asarray(complexity_channels_partial[1]) + np.asarray(complexity_channels_partial[2])*complexity_channels[2]
+		cmpl_partial=cmpl_partial
+		complexity_list.append(cmpl)
+		complexity_list_partial.append(cmpl_partial)
 
 	cnt=cnt+1	
 	if (cnt % 10) == 0:
