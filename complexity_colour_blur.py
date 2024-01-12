@@ -317,6 +317,10 @@ print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
 f.close()
 
+msk=df['frac']<=0.05 #FIXME: this is to account for rounding errors
+idx_to_drop = df.index[msk]
+df=df.drop(idx_to_drop)
+
 
 y1=df['gt'].to_numpy()
 y2=df['frac'].to_numpy()
@@ -383,7 +387,7 @@ if fl_o:
 	plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_filtered.eps', format='eps')
 
 	#regression
-	x=df1['frac']
+	x=df1['ms_total']
 	y=df1['gt']
 	slope, intercept, r, p, std_err = stats.linregress(x, y)
 	y1=slope * x + intercept
