@@ -17,6 +17,7 @@ import skimage
 
 import skimage as ski
 
+from scipy.signal import argrelextrema
 import numpy.ma as ma
 
 from PIL import Image 
@@ -57,7 +58,7 @@ def coarse_grain(img, depth):
     #image = pywt.data.camera()
     image = (image - image.min()) / (image.max() - image.min())
     # set up a range of scales in logarithmic spacing between 1 and 256 (image width / 2 seems to work ehre)
-    ss = np.geomspace(1.0,256.0,num=50)#[1,2,4,8,16,32,64,128,256]#np.geomspace(1.0,256.0,num=50)#
+    ss = np.geomspace(1.0,256.0,num=10)#[1,2,4,8,16,32,64,128,256]#np.geomspace(1.0,256.0,num=50)#
     # calculate the complex pycwt and the wavelet normalizations
     coeffs, wav_norm = py_cwt2d.cwt_2d(image, ss, 'mexh')
     ###########################
@@ -69,7 +70,7 @@ def coarse_grain(img, depth):
     ###############fix image intensity/brightest point here FIXME
 
     #cg_steps=[1,2,4,8,16,32,64,128,256]#FIXME this is for debug and testing medians other than 2**
-    for iloop in range(1, depth):
+    for iloop in range(1, len(ss)):
         #print("cg step "+str(iloop))
         #parental_pattern = stack_of_patterns[-1]  # Takes the last coarse-grained pattern from the previous iteration
         #renormalized_pattern = np.zeros((2**(full_depth-iloop), 2**(full_depth-iloop)))  # Prepare an empty matrix to create a renormalized picture
@@ -154,8 +155,8 @@ def compute_complexities(img):
     #print("started cg")
     stack = coarse_grain(img, 50)#depth1 - 3)  # Does the coarse-graining to depth = (maximal depth - 3)  -  I assume that the last three patterns are too coarse to bear any interesting information
     #print("finished cg")
-    blown_up_stack=stack
-    stack=stack[0:20]
+    #blown_up_stack=stack
+    #stack=stack[0:20]
     '''
     for level in range(len(stack)):
                 stack[level]=normalized=skimage.exposure.equalize_hist(stack[level], nbins=256, mask=None)
@@ -305,21 +306,82 @@ def debug_intensity(im):
 # Input file
 
 
+def regression(x,y):
+	slope, intercept, r, p, std_err = stats.linregress(x, y)
+	y1=slope * x + intercept
+	n=len(y)
+	'''plt.clf()
+	plt.scatter(x, y)
+	plt.plot(x, y1)
+	plt.savefig('regression_frac_test.png') 
+	'''
+	delta=(y1-y).to_numpy()
+	error_sum=0
+	for i in range(len(y)):
+		error_sum=error_sum+delta[i]**2
+	std_pred=np.sqrt(error_sum/len(y))
+	#N is the number of pairs of scores
+	#print statistics
+	#image
+	#standard error of estimate sqrt(sum((prediction - real value)^2)/n)
 
-cf_all=[]
-cs_all=[]
-random_all=[]
-type0_all=[]
+#calculates the number of local maximums
+def local_max_n(x):
+	x=np.asarray(x)
+	t=argrelextrema(x, np.greater)
+	return(len(t[0]))
 
+#gaps in spectrum? does it work?
+def local_min_n(x):
+	x=np.asarray(x)
+	t=argrelextrema(x, np.less)
+	return(len(t[0]))
+
+
+#enthropy of complexity spectrum
+#FIXME
+
+#image number, image, total complexity, partial complexities
+def image_stats(im_n, im, partial_complexity):
+	plt.clf()
+	x=range(1,len(partial_complexity))
+	fig, axs = plt.subplots(2, 2)
+	#print("???")
+	axs[0, 0].imshow(im, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[0, 0].set_title('original image, n='+str(im_n))
+	#print("!!!!")
+	axs[0, 1].plot(x,partial_complexity[1:len(partial_complexity)], label='partial complexities')
+	axs[0, 1].set_title('wavelets')
+	#print("you are here")
+	'''
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(4, 4), truncate=3.5, channel_axis=-1)
+	axs[1, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 0].set_title('sigma=4')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(8, 8), truncate=3.5, channel_axis=-1)
+	axs[1, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 1].set_title('sigma=8')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(12, 12), truncate=3.5, channel_axis=-1)
+	axs[2, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 0].set_title('sigma=12')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(16, 16), truncate=3.5, channel_axis=-1)
+	axs[2, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 1].set_title('sigma=16')
+	'''
+	plt.savefig('image_debug/'+str(im_n)+"_wavelet_debug.png")
+	plt.close(fig)
+
+
+subset_name='suprematism'
 dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
 ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
 
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
+
 subset_name=sys.argv[1]
 dataset_path=sys.argv[2]
 ranking_path=sys.argv[3]
-#cg_type=sys.argv[4]
-cg_type='wavelets'
+cg_type=sys.argv[4]
+#cg_type='wavelets'
 
 ############load sorted files##########################
 
@@ -343,6 +405,8 @@ df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
 cnt=0
 
+local_max_list=[]
+local_min_list=[]
 
 for im in image_list: 
 
@@ -370,6 +434,9 @@ for im in image_list:
 	cmpl_partial=im_intensity[0]*np.asarray(complexity_channels_partial[0]) + im_intensity[1]*np.asarray(complexity_channels_partial[1]) + im_intensity[2]*np.asarray(complexity_channels_partial[2])
 	complexity_list.append(cmpl)
 	complexity_list_partial.append(cmpl_partial)
+	local_max_list.append(1+local_max_n(cmpl_partial))
+	local_min_list.append(1+local_min_n(cmpl_partial))
+	image_stats(cnt, im, cmpl_partial)
 
 
 	
@@ -398,19 +465,21 @@ df['gt']=df['gt'].values
 df['ms_total']=complexity_list
 
 
-all_features=np.geomspace(1.0,256.0,num=50)#[1,2,4,8,16,32,64,128,256]
+all_features= np.geomspace(1.0,256.0,num=10)# np.geomspace(1.0,256.0,num=50)#[1,2,4,8,16,32,64,128,256]
 
 features=all_features[1:len(complexity_list_partial[0])+1]
 df[features]=complexity_list_partial
 
+df['frac']=df['ms_total'].values-df[features[0]].values-df[features[-1]].values
+df['local_max']=local_max_list
+df['local_min']=local_min_list
+df['2parts']=df['ms_total']*df['local_max']
+
+df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
+
 with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
     pickle.dump(df, handle)
 
-
-df['frac']=df['ms_total'].values-df[1.1198188001321776].values
-
-
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 #df = df.drop(df[df.ms_total>1000].index)
 
@@ -451,6 +520,67 @@ ttt=[slope, intercept, r, p, std_err]
 print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
 f.close()
+
+
+#human vs calculated 2-parts complexity
+y1=df['gt'].to_numpy()
+y2=df['2parts'].to_numpy()
+plt.clf()
+plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
+#plt.ylim(0,0.2)
+plt.xlabel('human ranking')
+plt.ylabel('multi-scale complexity')
+plt.title(cg_type+' cg, '+subset_name+' total complexity')
+plt.legend(loc='lower right')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total_2parts.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total_2parts.eps', format='eps')
+#regression
+x=df['2parts']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
+plt.clf()
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total_2parts.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total_2parts.eps', format='eps')
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total_2parts.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
+
+#human vs number of peaks
+y1=df['gt'].to_numpy()
+y2=df['local_max'].to_numpy()
+plt.clf()
+plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
+#plt.ylim(0,0.2)
+plt.xlabel('human ranking')
+plt.ylabel('local maximums')
+plt.title(cg_type+' cg, '+subset_name+' total complexity, local maximums number')
+plt.legend(loc='lower right')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total_lmax.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total_lmax.eps', format='eps')
+#regression
+x=df['local_max']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
+plt.clf()
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (full set)_lmax.png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total_lmax.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total_lmax.eps', format='eps')
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total_lmax.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
+
+
 
 
 y1=df['gt'].to_numpy()

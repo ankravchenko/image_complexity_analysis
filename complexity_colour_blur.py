@@ -7,6 +7,8 @@ import time
 from scipy import stats
 from skimage import io, transform
 
+from scipy.signal import argrelextrema
+
 import skimage as ski
 
 import numpy.ma as ma
@@ -17,7 +19,7 @@ from PIL import ImageOps
 import os
 
 import os.path
-
+import entropy as ent
 
 
 import glob
@@ -203,14 +205,58 @@ def regression(x,y):
 	#image
 	#standard error of estimate sqrt(sum((prediction - real value)^2)/n)
 
-subset_name='ad'
-dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Advertisement/"
-ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_ad.xlsx"
+#calculates the number of local maximums
+def local_max_n(x):
+	x=np.asarray(x)
+	t=argrelextrema(x, np.greater)
+	return(len(t[0]))
+
+#gaps in spectrum? does it work?
+def local_min_n(x):
+	x=np.asarray(x)
+	t=argrelextrema(x, np.less)
+	return(len(t[0]))
+
+
+#enthropy of complexity spectrum
+#FIXME
+
+#image number, image, total complexity, partial complexities
+def image_stats(im_n, im, partial_complexity):
+	features=['512-256', '256-128', '128-64', '64-32', '32-16']
+	plt.clf()
+	x=range(len(partial_complexity))
+	fig, axs = plt.subplots(3, 2)
+	#print("???")
+	axs[0, 0].imshow(im, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[0, 0].set_title('original image, n='+str(im_n))
+	#print("!!!!")
+	axs[0, 1].plot(x,partial_complexity, label='partial complexities')
+	axs[0, 1].set_title('gaussian blur')
+	#print("you are here")
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(4, 4), truncate=3.5, channel_axis=-1)
+	axs[1, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 0].set_title('sigma=4')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(8, 8), truncate=3.5, channel_axis=-1)
+	axs[1, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 1].set_title('sigma=8')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(12, 12), truncate=3.5, channel_axis=-1)
+	axs[2, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 0].set_title('sigma=12')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(16, 16), truncate=3.5, channel_axis=-1)
+	axs[2, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 1].set_title('sigma=16')
+	plt.savefig('image_debug/'+str(im_n)+"_blur_debug.png")
+	plt.close(fig)
+
+subset_name='suprematism'
+dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
+ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
 
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
-subset_name=sys.argv[1]
+'''subset_name=sys.argv[1]
 dataset_path=sys.argv[2]
-ranking_path=sys.argv[3]
+ranking_path=sys.argv[3]'''
 #cg_type=sys.argv[4]
 cg_type='blur'
 ############load sorted files##########################
@@ -234,6 +280,9 @@ for im in image_list_jpg:
 #all 3 colours
 complexity_list=[]
 complexity_list_partial=[]
+local_max_list=[]
+local_min_list=[]
+
 df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
 cnt=0
@@ -248,6 +297,9 @@ for im in image_list:
 
 		complexity_list.append(x)
 		complexity_list_partial.append(partial)
+		local_max_list.append(1+local_max_n(partial))
+		local_min_list.append(1+local_min_n(partial))
+		image_stats(cnt, rs, partial)
 	else:
 		im_channels=[im[:,:,0], im[:,:,1], im[:,:,2]]#FIXME there's a more elegant way to do this
 		im_intensity=[0, 0, 0]
@@ -276,7 +328,9 @@ for im in image_list:
 		cmpl_partial=cmpl_partial
 		complexity_list.append(cmpl)
 		complexity_list_partial.append(cmpl_partial)
-
+		local_max_list.append(1+local_max_n(cmpl_partial))
+		local_min_list.append(1+local_min_n(cmpl_partial))
+		image_stats(cnt, im, cmpl_partial)
 	cnt=cnt+1	
 	if (cnt % 10) == 0:
 		print(cnt)
@@ -289,15 +343,20 @@ df['ms_total']=complexity_list
 
 #subset_name
 #cg_type
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
 
 
 features=['512-256', '256-128', '128-64', '64-32', '32-16']
 df[features]=complexity_list_partial
 df['frac']=df['ms_total'].values-df['512-256'].values-df['32-16'].values
+df['local_max']=local_max_list
+df['local_min']=local_min_list
+df['2parts']=df['ms_total']*((df['local_max']+df['local_min'])/2)
 
 df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
+
+with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
+    pickle.dump(df, handle)
+
 
 
 x=range(0,df['ms_total'].to_numpy().shape[0])
@@ -314,6 +373,8 @@ plt.title(cg_type+' cg, '+subset_name+' total complexity')
 plt.legend(loc='lower right')
 plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
 plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
+
+
 
 #regression
 x=df['ms_total']
@@ -334,41 +395,40 @@ print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
 f.close()
 
-msk=df['frac']<=0.05 #FIXME: this is to account for rounding errors
-idx_to_drop = df.index[msk]
-df=df.drop(idx_to_drop)
 
 
+#human vs calculated 2-parts complexity
 y1=df['gt'].to_numpy()
-y2=df['frac'].to_numpy()
-#human vs calculated complexity
+y2=df['2parts'].to_numpy()
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.ylim(0,0.2)
+#plt.ylim(0,0.2)
 plt.xlabel('human ranking')
 plt.ylabel('multi-scale complexity')
-plt.title(cg_type+' cg, '+subset_name+' complexity (middle scales)')
+plt.title(cg_type+' cg, '+subset_name+' total complexity')
 plt.legend(loc='lower right')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_frac.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_frac.eps', format='eps')
-
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total_2parts.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total_2parts.eps', format='eps')
 #regression
-x=df['frac']
+x=df['2parts']
 y=df['gt']
 slope, intercept, r, p, std_err = stats.linregress(x, y)
 y1=slope * x + intercept
 plt.clf()
 plt.scatter(x, y)
 plt.plot(x, y1, color='orange')
-plt.title(cg_type+' cg, '+subset_name+' regression (middle scales).png')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_frac.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_frac.eps', format='eps')
-
-f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_frac.log', "w")
+plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total_2parts.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total_2parts.eps', format='eps')
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total_2parts.log', "w")
 ttt=[slope, intercept, r, p, std_err]
 print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
 f.close()
+
+
+
+
 
 #drop outliers
 idx_to_drop=[]
@@ -421,6 +481,45 @@ if fl_o:
 	print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 	print(*ttt, sep='\t', end='\n', file=f)
 	f.close()
+
+
+'''
+msk=df['frac']<=0.05 #FIXME: this is to account for rounding errors
+idx_to_drop = df.index[msk]
+df=df.drop(idx_to_drop)
+'''
+
+y1=df['gt'].to_numpy()
+y2=df['frac'].to_numpy()
+#human vs calculated complexity
+plt.clf()
+plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
+plt.ylim(0,0.2)
+plt.xlabel('human ranking')
+plt.ylabel('multi-scale complexity')
+plt.title(cg_type+' cg, '+subset_name+' complexity (middle scales)')
+plt.legend(loc='lower right')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_frac.eps', format='eps')
+
+
+#regression
+x=df['frac']
+y=df['gt']
+slope, intercept, r, p, std_err = stats.linregress(x, y)
+y1=slope * x + intercept
+plt.clf()
+plt.scatter(x, y)
+plt.plot(x, y1, color='orange')
+plt.title(cg_type+' cg, '+subset_name+' regression (middle scales).png')
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_frac.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_frac.eps', format='eps')
+
+f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_frac.log', "w")
+ttt=[slope, intercept, r, p, std_err]
+print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
+print(*ttt, sep='\t', end='\n', file=f)
+f.close()
 
 '''
 for feature in features:
