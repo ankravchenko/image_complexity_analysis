@@ -35,6 +35,7 @@ from random import randint, random
 from tifffile import imsave
 
 
+import matplotlib.pyplot as plt
 
 
 # Function converting colored picture to the gray scale
@@ -45,8 +46,8 @@ def rgb2gray(rgb):
 # Function doing coarse graining of the image
 
 def coarse_grain(img, depth):
-    #if depth>11:#FIXME
-        #depth=11
+    if depth>6:#FIXME
+        depth=6
     stack_of_patterns = []  # To keep all the coarse-grained pictures
     stack_of_patterns.append(img)  # Append the original picture
     full_depth = int(np.log2(len(img))) # Estimates the total number of coarse-graining steps that can be done, assuming that we apply 2*2 filter at each step
@@ -55,23 +56,20 @@ def coarse_grain(img, depth):
     # apply shift of origin to center of image
     dft_shift = np.fft.fftshift(dft)
     mag = np.abs(dft_shift)
-    if mag != 0:
-        spec = np.log(mag) / 20
-    else:
-        spec=0
+    spec = np.log(mag) / 20
 
-    blur_range=np.geomspace(256.0, 1.0,num=50)#[128,96,64,48,32,24,16,12,8,4,2]
+    blur_range=[128,64,32,16,8,4,2]
     for iloop in range(1, depth):
         # create circle mask
         r=blur_range[iloop]
-        radius = int(r)
+        radius = r
         mask = np.zeros_like(img)
         cy = mask.shape[0] // 2
         cx = mask.shape[1] // 2
         #print('preparing mask')
         cv2.circle(mask, (cx,cy), radius, (255,255,255), -1)[0]
 
-        fz=radius*2-1
+        fz=r*2-1
         # blur the mask
         #print('preparing blurry mask')
         mask2 = cv2.GaussianBlur(mask, (fz,fz), 0)
@@ -144,20 +142,19 @@ def compute_complexities(img):
     complexities = []   # this will store cumulative complexities like C1, C1+C2, C1+C2+C3... The final cumulative complexity is the overall one.
 
 ## The next six lines are simply to make sure that the image has dimension exactly 2^L * 2^L - unfortunately, this algorithm requires your data to be first scaled to this size
-    '''          
+              
     depth1 = np.log2(len(img))  # Computes the possible depth of coarse graining using one side of the image
     depth2 = np.log2(len(img[0]))  # Computes the possible depth of coarse graining using the other side of the image
-    
+
     #assert abs( int(depth1) - depth1 ) < 1e-6, "The first side should be a power of 2"
     #assert abs( int(depth2) - depth2 ) < 1e-6, "The second side should be a power of 2"
 
     depth1 = int(depth1)
     depth2 = int(depth2)
-    '''
+    
     #assert int(depth2) == int(depth1), "Sides must be equal"
     #print("depth="+str(depth1))
-    depth1=49
-    stack = coarse_grain(img, depth1)  # Does the coarse-graining to depth = (maximal depth - 3)  -  I assume that the last three patterns are too coarse to bear any interesting information
+    stack = coarse_grain(img, depth1 - 3)  # Does the coarse-graining to depth = (maximal depth - 3)  -  I assume that the last three patterns are too coarse to bear any interesting information
     #blown_up_stack=stack
     '''
     blown_up_stack = []      # Will store all the coarse-grained images upscaled to the original resolution
@@ -197,10 +194,18 @@ def debug_cg(im):
 	plt.savefig('0debug_orig.png')
 	print("original_printed")
 	###
+	'''
 	gray = rgb2gray(im)
-	rs = transform.resize(gray, (512,512), anti_aliasing=False) 
-	rs=rs.astype(np.float64)
-	
+	###DEBUG
+	plt.clf()
+	plt.imshow(gray, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(gray))
+	plt.savefig('0debug_gray.png')
+	print("greyscale_printed")
+	'''
+	###
+	rs= im#= transform.resize(gray, (512,512), anti_aliasing=False) 
+	###DEBUG
+	'''
 	plt.clf()
 	plt.imshow(rs, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
 	plt.savefig('0debug_rs.png')
@@ -209,9 +214,13 @@ def debug_cg(im):
 	norm=np.einsum('ij,ij', rs, rs)
 	#intensity of image/square root of norm
 	rs=rs/np.sqrt(norm)
-
+	'''
+	profiles = []
+	stack_of_patterns = []
+	stack_of_patterns.append(rs)
+	renorm_pattern = rs
 	print('start coarse grain')
-	stack = coarse_grain(rs, 11)	
+	stack = coarse_grain(rs, 6)	
 	print('coarse grain finished')
 	print(len(stack))
 	i=0
@@ -226,6 +235,7 @@ def debug_cg(im):
 
 def regression(x,y):
 	slope, intercept, r, p, std_err = stats.linregress(x, y)
+	y1=slope * x + intercept
 	n=len(y)
 	'''plt.clf()
 	plt.scatter(x, y)
@@ -259,56 +269,46 @@ def local_min_n(x):
 #FIXME
 
 #image number, image, total complexity, partial complexities
-def image_stats(im_n, im, partial_complexity, cmpl, subset_name, cg_type):
+def image_stats(im_n, im, partial_complexity):
+	features=['512-256', '256-128', '128-64', '64-32', '32-16']
 	plt.clf()
 	x=range(len(partial_complexity))
-
-	gray = rgb2gray(im)
-	rs = transform.resize(gray, (512,512), anti_aliasing=False) 
-	rs=rs.astype(np.float64)
-	norm=np.einsum('ij,ij', rs, rs)
-	#intensity of image/square root of norm
-	rs=rs/np.sqrt(norm)
-	stack = coarse_grain(rs, 11)
-
-	fig, axs = plt.subplots(6, 2)
+	fig, axs = plt.subplots(3, 2)
 	#print("???")
 	axs[0, 0].imshow(im, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
-	axs[0, 0].set_title('original image, n='+str(im_n)+', total complexity='+f'{cmpl:.3f}')
+	axs[0, 0].set_title('original image, n='+str(im_n))
 	#print("!!!!")
 	axs[0, 1].plot(x,partial_complexity, label='partial complexities')
-	axs[0, 1].set_ylim([0, 0.03])
-	axs[0, 1].set_title('FT')
+	axs[0, 1].set_title('gaussian blur')
 	#print("you are here")
-
-	axs[1, 0].imshow(stack[1], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[1, 1].imshow(stack[2], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[2, 0].imshow(stack[3], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[2, 1].imshow(stack[4], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[3, 0].imshow(stack[5], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[3, 1].imshow(stack[6], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[4, 0].imshow(stack[7], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[4, 1].imshow(stack[8], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[5, 0].imshow(stack[9], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	axs[5, 1].imshow(stack[10], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	if not os.path.exists('image_debug/'+subset_name):
-		os.mkdir('image_debug/'+subset_name)
-	plt.savefig('image_debug/'+subset_name+'/'+str(im_n)+"_"+cg_type+"_debug.png")
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(4, 4), truncate=3.5, channel_axis=-1)
+	axs[1, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 0].set_title('sigma=4')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(8, 8), truncate=3.5, channel_axis=-1)
+	axs[1, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[1, 1].set_title('sigma=8')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(12, 12), truncate=3.5, channel_axis=-1)
+	axs[2, 0].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 0].set_title('sigma=12')
+	renormalized_pattern=ski.filters.gaussian(im, sigma=(16, 16), truncate=3.5, channel_axis=-1)
+	axs[2, 1].imshow(renormalized_pattern, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
+	axs[2, 1].set_title('sigma=16')
+	plt.savefig('image_debug/'+str(im_n)+"_ftt_debug.png")
 	plt.close(fig)
 
-subset_name='suprematism'
-dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
-ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx"
+subset_name='scenes'
+dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Scenes/"
+ranking_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/global_ranking/global_ranking_places.xlsx"
 
 '''
 python3 complexity_colour_fft.py advertisement "../Savoias-Dataset/Images/Advertisement/" "../Savoias-Dataset/Images/global_ranking/global_ranking_ad.xlsx" fft
 
 '''
-
+'''
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
 subset_name=sys.argv[1]
 dataset_path=sys.argv[2]
-ranking_path=sys.argv[3]
+ranking_path=sys.argv[3]'''
 #cg_type=sys.argv[4]
 cg_type='fft'
 ############load sorted files##########################
@@ -341,7 +341,6 @@ cnt=0
 for im in image_list: 
 	if len(im.shape) == 2:#for greyscale images
 		rs = transform.resize(im, (512,512), anti_aliasing=False) 
-		rs=rs.astype(np.float64)
 		norm=np.einsum('ij,ij', rs, rs)
 		#intensity of image/square root of norm
 		rs=rs/np.sqrt(norm)
@@ -353,9 +352,8 @@ for im in image_list:
 		complexity_list_partial.append(partial)
 		local_max_list.append(1+local_max_n(partial))
 		local_min_list.append(1+local_min_n(partial))
-		image_stats(cnt, rs, partial, x,subset_name, cg_type)
+		image_stats(cnt, rs, partial)
 	else:
-		rs = transform.resize(im, (512,512), anti_aliasing=False) 
 		im_channels=[im[:,:,0], im[:,:,1], im[:,:,2]]#FIXME there's a more elegant way to do this
 		im_intensity=[0, 0, 0]
 		j=0
@@ -387,71 +385,47 @@ for im in image_list:
 		complexity_list_partial.append(cmpl_partial)
 		local_max_list.append(1+local_max_n(cmpl_partial))
 		local_min_list.append(1+local_min_n(cmpl_partial))
-		image_stats(cnt, im, cmpl_partial, cmpl, subset_name, cg_type)
+		image_stats(cnt, im, cmpl_partial)
 	cnt=cnt+1	
 	#print(cnt)
 	if (cnt % 10) == 0:
 		print(cnt)
 		#break
 
-
+df = pd.ExcelFile(ranking_path).parse('Sheet1');
 #complexity_list=complexity_list/np.max(complexity_list)
-
+'''df['gt']=df['gt'].values'''
 df['ms_total']=complexity_list
 df['ms_total']=df['ms_total']*3
 
-
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
-
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
-
-
-a=complexity_list_partial
-feature_n=len(max(a,key = lambda x: len(x)))
-np_partial = np.zeros([len(a),feature_n])
-for i,j in enumerate(a):
-    np_partial[i][0:len(j)] = j
-
-np_partial=np_partial*3
-
-features = [f"s{i}" for i in range(feature_n)]
-
-
-df[features]=np_partial
 msk=df['ms_total']>0.5 
 idx = df.index[msk]
+
 df=df.drop(idx)
+#subset_name
+#cg_type
 
-avg_c=df[features].mean().to_numpy()
-plt.clf()
-plt.plot(range(len(avg_c)),avg_c, label='partial complexities averaged, '+subset_name)
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.eps', format='eps')
-
-
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
+'''
+features=['p1', 'p2', 'p3', 'p4', 'p5']
+df[features]=complexity_list_partial
+df['frac']=df['ms_total'].values-df['p1'].values-df['p4'].values
+df['local_max']=local_max_list
+df['local_min']=local_min_list
+df['2parts']=df['ms_total']*((df['local_max']+df['local_min'])/2)
 
 df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
+'''
+with open('fft_slides/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
+    pickle.dump(df, handle)
 
-
-
-#removing outliers
+df.to_csv('fft_slides/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 idx=[]
-if subset_name=='suprematism':
-	idx=[50, 95, 64, 65, 52, 53, 13, 48, 20]
-elif subset_name=='advertisement':
-	msk=df['ms_total']>0.3 
-	idx = df.index[msk]
-elif subset_name=='art':
-	idx=[380, 225, 30, 88, 119, 286, 107]
-'''elif subset_name=='infographics':
-	msk=df['ms_total']>0.5 
-	idx = df.index[msk]'''
-
-
+'''idx=[50, 95, 64, 65, 52, 53, 13, 48, 20]'''
+'''
+msk=df['ms_total']>0.3 #advertisement
+idx = df.index[msk]
+'''
 outliers=df.loc[idx]
 df=df.drop(idx)
 
@@ -462,7 +436,6 @@ y2=df['ms_total'].to_numpy()
 y1o=outliers['gt'].to_numpy()
 y2o=outliers['ms_total'].to_numpy()
 
-
 #human vs calculated complexity
 plt.clf()
 plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
@@ -472,8 +445,8 @@ plt.xlabel('human ranking',fontsize=16)
 plt.ylabel('multi-scale structural complexity',fontsize=16)
 plt.title(subset_name+', total complexity',fontsize=20)
 plt.legend(loc='lower right')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
+plt.savefig('fft_slides/'+cg_type+'_'+subset_name+'_complexity_total.png')
+plt.savefig('fft_slides/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
 
 
 
@@ -491,38 +464,36 @@ plt.ylabel('multi-scale structural complexity',fontsize=16)
 plt.scatter(xo,yo,color='red', linewidth=2, alpha=0.5)
 plt.plot(x, y1, color='orange')
 plt.title(subset_name+', linear regression', fontsize=20)
-plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
+plt.savefig('fft_slides/'+cg_type+'_'+subset_name+'_regression_total.png')
+plt.savefig('fft_slides/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
 
 
-f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
+f = open("fft_slides/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
 ttt=[slope, intercept, r, p, std_err]
 print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
 f.close()
 
-#remove outliers
-#fractions
-#perhaps average
-
 '''
 
+cg_type='fft'
+subset_name='suprematism'
 handle=open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle','rb')
 df=pickle.load(handle)
 df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 
 for suprematism:
-idx=[50, 95, 64, 65, 52, 53, 13, 24, 23, 48, 20]
+idx=[50, 95, 64, 65, 52, 53, 13, 48, 20]
 #23?
 for art:
 idx=[380, 225, 30, 88, 119, 286, 107]
 
 msk=df['ms_total']>0.19 #infographics
 msk=df['ms_total']>0.1 #advertisement
-idx_to_drop = df.index[msk]
-df=df.drop(idx_to_drop)
+idx = df.index[msk]
+outliers=df[idx]
+df1=df.drop(idx)
 
 
 

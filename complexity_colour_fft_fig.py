@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import sys
@@ -55,12 +56,13 @@ def coarse_grain(img, depth):
     # apply shift of origin to center of image
     dft_shift = np.fft.fftshift(dft)
     mag = np.abs(dft_shift)
-    if mag != 0:
+    #print(mag)
+    if mag.all() != 0:
         spec = np.log(mag) / 20
     else:
         spec=0
 
-    blur_range=np.geomspace(256.0, 1.0,num=50)#[128,96,64,48,32,24,16,12,8,4,2]
+    blur_range=np.geomspace(256.0, 1.0,num=depth)#[128,96,64,48,32,24,16,12,8,4,2]
     for iloop in range(1, depth):
         # create circle mask
         r=blur_range[iloop]
@@ -138,7 +140,7 @@ def blow_up(img, nn):
 
 # The main function computing partial and overall complexities
 
-def compute_complexities(img): 
+def compute_complexities(img, depth): 
 
     partials = []  # this will store partial complexities C1, C2, C3 etc.
     complexities = []   # this will store cumulative complexities like C1, C1+C2, C1+C2+C3... The final cumulative complexity is the overall one.
@@ -156,7 +158,7 @@ def compute_complexities(img):
     '''
     #assert int(depth2) == int(depth1), "Sides must be equal"
     #print("depth="+str(depth1))
-    depth1=49
+    depth1=depth
     stack = coarse_grain(img, depth1)  # Does the coarse-graining to depth = (maximal depth - 3)  -  I assume that the last three patterns are too coarse to bear any interesting information
     #blown_up_stack=stack
     '''
@@ -188,39 +190,6 @@ def compute_complexities(img):
         #plt.imshow(blow_up(stack[iloop], iloop), cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(blow_up(stack[iloop], iloop)))
         #plt.show()
     return complexity, partial
-
-
-def debug_cg(im):
-	###DEBUG
-	plt.clf()
-	plt.imshow(im, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
-	plt.savefig('0debug_orig.png')
-	print("original_printed")
-	###
-	gray = rgb2gray(im)
-	rs = transform.resize(gray, (512,512), anti_aliasing=False) 
-	rs=rs.astype(np.float64)
-	
-	plt.clf()
-	plt.imshow(rs, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	plt.savefig('0debug_rs.png')
-	print("resized_printed")
-	###
-	norm=np.einsum('ij,ij', rs, rs)
-	#intensity of image/square root of norm
-	rs=rs/np.sqrt(norm)
-
-	print('start coarse grain')
-	stack = coarse_grain(rs, 11)	
-	print('coarse grain finished')
-	print(len(stack))
-	i=0
-	for el in stack:
-	     #print(np.shape(el))
-	     plt.clf()
-	     plt.imshow(el, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(el))
-	     plt.savefig('debug_'+str(i)+'.png')
-	     i=i+1
 
 
 
@@ -258,19 +227,167 @@ def local_min_n(x):
 #enthropy of complexity spectrum
 #FIXME
 
-#image number, image, total complexity, partial complexities
-def image_stats(im_n, im, partial_complexity, cmpl, subset_name, cg_type):
-	plt.clf()
-	x=range(len(partial_complexity))
 
+
+'''
+
+import matplotlib.pyplot as plt
+
+
+import matplotlib.pyplot as plt
+plt.clf()
+plt.figure(figsize=(8,8))
+plt.subplot(3,2,1)
+plt.subplot(3,2,3)
+plt.subplot(3,2,5)
+plt.subplot(1,2,2)
+plt.savefig('test.png')
+
+The first code creates the first subplot in a layout that has 3 rows and 2 columns.
+
+The three graphs in the first column denote the 3 rows. The second plot comes just below the first plot in the same column and so on.
+
+The last two plots have arguments (2, 2) denoting that the second column has only two rows, the position parameters move row wise.
+
+!!!!!!!!!!!!
+plt.clf()
+plt.figure(figsize=(8,8))
+axis=plt.subplot(4,3,1)
+axis.text(0.02, 0.9, '1')
+axis=plt.subplot(4,3,2)
+axis.text(0.02, 0.9, '2')
+axis=plt.subplot(4,3,4)
+axis.text(0.02, 0.9, '4')
+axis=plt.subplot(4,3,5)
+axis.text(0.02, 0.9, '5')
+axis=plt.subplot(4,3,6)
+axis.text(0.02, 0.9, '6')
+axis=plt.subplot(4,3,7)
+axis.text(0.02, 0.9, '7')
+axis=plt.subplot(4,3,8)
+axis.text(0.02, 0.9, '8')
+axis=plt.subplot(4,3,9)
+axis.text(0.02, 0.9, '9')
+axis=plt.subplot(4,3,10)
+axis.text(0.02, 0.9, '10')
+axis=plt.subplot(4,3,11)
+axis.text(0.02, 0.9, '11')
+axis=plt.subplot(4,3,12)
+axis.text(0.02, 0.9, '12')
+
+axis=plt.subplot(1,3,3)
+axis.text(0.02, 0.9, '3')
+plt.savefig('test.png')
+!!!!!!!!
+
+
+
+plt.clf()
+plt.figure(figsize=(8,8))
+axis=plt.subplot(5,3,1)
+axis.text(0.02, 0.9, '1')
+axis=plt.subplot(5,3,2)
+axis.text(0.02, 0.9, '2')
+axis=plt.subplot(5,3,4)
+axis.text(0.02, 0.9, '4')
+axis=plt.subplot(5,3,5)
+axis.text(0.02, 0.9, '5')
+axis=plt.subplot(5,3,7)
+axis.text(0.02, 0.9, '7')
+axis=plt.subplot(5,3,8)
+axis.text(0.02, 0.9, '8')
+axis=plt.subplot(5,3,10)
+axis.text(0.02, 0.9, '10')
+axis=plt.subplot(5,3,11)
+axis.text(0.02, 0.9, '11')
+axis=plt.subplot(5,3,13)
+axis.text(0.02, 0.9, '13')
+axis=plt.subplot(5,3,14)
+axis.text(0.02, 0.9, '14')
+axis=plt.subplot(1,3,3)
+axis.text(0.02, 0.9, '3')
+plt.savefig('test.png')
+
+'''
+def fig_stats(im_n, im): #fig_stats(im_n, im, partial_complexity, cmpl, subset_name, cg_type): #FIXME this is horrible, rewrite in a proper loop
+	plt.clf()
+	#x=range(len(partial_complexity))
+	depth=8
+	
 	gray = rgb2gray(im)
 	rs = transform.resize(gray, (512,512), anti_aliasing=False) 
 	rs=rs.astype(np.float64)
 	norm=np.einsum('ij,ij', rs, rs)
 	#intensity of image/square root of norm
 	rs=rs/np.sqrt(norm)
-	stack = coarse_grain(rs, 11)
+	stack = coarse_grain(rs, depth)
+	cmpl, partial = compute_complexities(rs, depth)
+	plt.clf()
+	plt.figure(figsize=(80,80))
+	
+	axis=plt.subplot(5,3,1)
+	#axis.text(0.02, 0.9, '1')
+	axis.axis('off')
+	axis.imshow(stack[1], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	axis=plt.subplot(5,3,2)
+	#axis.text(0.02, 0.9, '2')
+	axis.axis('off')
+	axis.imshow(stack[2], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	
+	axis=plt.subplot(5,3,4)
+	#axis.text(0.02, 0.9, '4')
+	axis.axis('off')
+	axis.imshow(stack[2], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	axis=plt.subplot(5,3,5)
+	axis.axis('off')
+	axis.imshow(stack[3], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	#axis.text(0.02, 0.9, '5')
 
+	axis=plt.subplot(5,3,7)
+	axis.axis('off')
+	axis.imshow(stack[3], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	#axis.text(0.02, 0.9, '7')
+	axis=plt.subplot(5,3,8)
+	#axis.text(0.02, 0.9, '8')
+	axis.axis('off')
+	axis.imshow(stack[4], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+
+	axis=plt.subplot(5,3,10)
+	#axis.text(0.02, 0.9, '10')
+	axis.axis('off')
+	axis.imshow(stack[4], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	axis=plt.subplot(5,3,11)
+	#axis.text(0.02, 0.9, '11')
+	axis.axis('off')
+	axis.imshow(stack[5], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+
+	axis=plt.subplot(5,3,13)
+	#axis.text(0.02, 0.9, '13')
+	axis.axis('off')
+	axis.imshow(stack[5], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	axis=plt.subplot(5,3,14)
+	#axis.text(0.02, 0.9, '14')
+	axis.axis('off')
+	axis.imshow(stack[6], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
+	axis=plt.subplot(1,3,3)
+	#axis.text(0.02, 0.9, '3')
+	x=range(1,6)
+	pr=partial[1:6]
+	plt.rc('xtick', labelsize=50)    # fontsize of the tick labels
+	plt.rc('ytick', labelsize=50)    # fontsize of the tick labels
+
+	matplotlib.rcParams.update({'font.size': 50})
+	axis.set_title('Complexity at each scale', fontsize=70)
+	axis.plot(pr,x,linewidth=7, color='orange')
+	axis.scatter(pr, x, color='red', marker = 'o', linewidth=21)
+	axis.set_yticks([], minor=False)
+	#yticks=[]#list(x)
+	#yticks.reverse
+	#axis.set_yticklabels(yticks, fontdict=None, minor=False)
+	for i, txt in enumerate(pr):
+		axis.annotate(str(round(txt, 2)), (pr[i], x[i]))
+	#plt.savefig('test.png')
+	'''
 	fig, axs = plt.subplots(6, 2)
 	#print("???")
 	axs[0, 0].imshow(im, cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(im))
@@ -291,10 +408,10 @@ def image_stats(im_n, im, partial_complexity, cmpl, subset_name, cg_type):
 	axs[4, 1].imshow(stack[8], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
 	axs[5, 0].imshow(stack[9], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
 	axs[5, 1].imshow(stack[10], cmap=plt.get_cmap('gray'), vmin=0, vmax=np.amax(rs))
-	if not os.path.exists('image_debug/'+subset_name):
-		os.mkdir('image_debug/'+subset_name)
-	plt.savefig('image_debug/'+subset_name+'/'+str(im_n)+"_"+cg_type+"_debug.png")
-	plt.close(fig)
+	'''
+
+	plt.savefig(str(im_n)+"_ft_fig2.png", dpi=50)
+	plt.close('all')
 
 subset_name='suprematism'
 dataset_path="/vol/tcm36/akravchenko/image_complexity/Savoias-Dataset/Images/Suprematism/"
@@ -306,9 +423,9 @@ python3 complexity_colour_fft.py advertisement "../Savoias-Dataset/Images/Advert
 '''
 
 #complexity_colour_blur.py suprematism "../Savoias-Dataset/Images/Suprematism/" "../Savoias-Dataset/Images/global_ranking/global_ranking_sup.xlsx" blur
-subset_name=sys.argv[1]
+'''subset_name=sys.argv[1]
 dataset_path=sys.argv[2]
-ranking_path=sys.argv[3]
+ranking_path=sys.argv[3]'''
 #cg_type=sys.argv[4]
 cg_type='fft'
 ############load sorted files##########################
@@ -338,6 +455,15 @@ local_min_list=[]
 df = pd.ExcelFile(ranking_path).parse('Sheet1');
 mask=np.zeros(len(df))
 cnt=0
+
+for im in image_list: 
+	fig_stats(cnt, im)
+	break
+
+fig_stats(70, image_list[70])
+fig_stats(37, image_list[37])
+fig_stats(30, image_list[30])
+'''
 for im in image_list: 
 	if len(im.shape) == 2:#for greyscale images
 		rs = transform.resize(im, (512,512), anti_aliasing=False) 
@@ -394,174 +520,6 @@ for im in image_list:
 		print(cnt)
 		#break
 
-
-#complexity_list=complexity_list/np.max(complexity_list)
-
-df['ms_total']=complexity_list
-df['ms_total']=df['ms_total']*3
-
-
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
-
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
-
-
-a=complexity_list_partial
-feature_n=len(max(a,key = lambda x: len(x)))
-np_partial = np.zeros([len(a),feature_n])
-for i,j in enumerate(a):
-    np_partial[i][0:len(j)] = j
-
-np_partial=np_partial*3
-
-features = [f"s{i}" for i in range(feature_n)]
-
-
-df[features]=np_partial
-msk=df['ms_total']>0.5 
-idx = df.index[msk]
-df=df.drop(idx)
-
-avg_c=df[features].mean().to_numpy()
-plt.clf()
-plt.plot(range(len(avg_c)),avg_c, label='partial complexities averaged, '+subset_name)
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.eps', format='eps')
-
-
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
-    pickle.dump(df, handle)
-
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
-
-
-
-#removing outliers
-
-idx=[]
-if subset_name=='suprematism':
-	idx=[50, 95, 64, 65, 52, 53, 13, 48, 20]
-elif subset_name=='advertisement':
-	msk=df['ms_total']>0.3 
-	idx = df.index[msk]
-elif subset_name=='art':
-	idx=[380, 225, 30, 88, 119, 286, 107]
-'''elif subset_name=='infographics':
-	msk=df['ms_total']>0.5 
-	idx = df.index[msk]'''
-
-
-outliers=df.loc[idx]
-df=df.drop(idx)
-
-x=range(0,df['ms_total'].to_numpy().shape[0])
-y1=df['gt'].to_numpy()
-y2=df['ms_total'].to_numpy()
-
-y1o=outliers['gt'].to_numpy()
-y2o=outliers['ms_total'].to_numpy()
-
-
-#human vs calculated complexity
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-plt.scatter(y1o,y2o,color='red', linewidth=2, alpha=0.5)
-#plt.ylim(0,0.2)
-plt.xlabel('human ranking',fontsize=16)
-plt.ylabel('multi-scale structural complexity',fontsize=16)
-plt.title(subset_name+', total complexity',fontsize=20)
-plt.legend(loc='lower right')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
-
-
-
-#regression
-x=df['ms_total']
-y=df['gt']
-xo=outliers['ms_total']
-yo=outliers['gt']
-slope, intercept, r, p, std_err = stats.linregress(x, y)
-y1=slope * x + intercept
-plt.clf()
-plt.scatter(x, y)
-plt.xlabel('human ranking',fontsize=16)
-plt.ylabel('multi-scale structural complexity',fontsize=16)
-plt.scatter(xo,yo,color='red', linewidth=2, alpha=0.5)
-plt.plot(x, y1, color='orange')
-plt.title(subset_name+', linear regression', fontsize=20)
-plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
-
-
-f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
-ttt=[slope, intercept, r, p, std_err]
-print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
-print(*ttt, sep='\t', end='\n', file=f)
-f.close()
-
-#remove outliers
-#fractions
-#perhaps average
-
 '''
-
-handle=open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle','rb')
-df=pickle.load(handle)
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
-
-
-for suprematism:
-idx=[50, 95, 64, 65, 52, 53, 13, 24, 23, 48, 20]
-#23?
-for art:
-idx=[380, 225, 30, 88, 119, 286, 107]
-
-msk=df['ms_total']>0.19 #infographics
-msk=df['ms_total']>0.1 #advertisement
-idx_to_drop = df.index[msk]
-df=df.drop(idx_to_drop)
-
-
-
-x=range(0,df['ms_total'].to_numpy().shape[0])
-y1=df['gt'].to_numpy()
-y2=df['ms_total'].to_numpy()
-
-#human vs calculated complexity
-plt.clf()
-plt.scatter(y1,y2,color='blue', linewidth=2, alpha=0.5)
-#plt.ylim(0,0.2)
-plt.xlabel('human ranking')
-plt.ylabel('multi-scale complexity')
-plt.title(cg_type+' cg, '+subset_name+' total complexity (no outliers)')
-plt.legend(loc='lower right')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_no_outliers.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_no_outliers.eps', format='eps')
-
-
-
-#regression
-x=df['ms_total']
-y=df['gt']
-slope, intercept, r, p, std_err = stats.linregress(x, y)
-y1=slope * x + intercept
-plt.clf()
-plt.scatter(x, y)
-plt.plot(x, y1, color='orange')
-plt.title(cg_type+' cg, '+subset_name+' regression (no outliers).png')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_no_outliers.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_no_otliers.eps', format='eps')
-
-
-f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_no_outliers.log', "w")
-ttt=[slope, intercept, r, p, std_err]
-print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
-print(*ttt, sep='\t', end='\n', file=f)
-f.close()
-'''
-
 
 
