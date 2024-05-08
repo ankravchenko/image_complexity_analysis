@@ -1,0 +1,3 @@
+python3 plot_scale_impact.py natural
+python3 plot_scale_impact.py artificial
+python3 combine_images_scale.py

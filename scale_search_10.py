@@ -12,7 +12,7 @@ cg_type='fft'
 #cg_type=sys.argv[2]
 
 #pickle load
-handle=open('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity.pickle','rb')
+handle=open('calculated_mssc_new/'+cg_type+'_'+subset_name+'_complexity.pickle','rb')
 df=pickle.load(handle)
 
 #remove outliers
@@ -23,14 +23,14 @@ idx=[]
 if subset_name=='suprematism':
 	idx=[]#[50, 95, 64, 65, 52, 53, 13, 48, 20]
 elif subset_name=='advertisement':
-	msk=df['ms_total']>0.3 
-	idx = df.index[msk]
+	#msk=df['ms_total']>0.3 
+	idx = []#df.index[msk]
 elif subset_name=='art':
-	idx=[119,107,88,30,200, 225,380, 328, 286, 216, 316, 332, 86, 108, 73, 23, 285,31]
+	idx=[]#[119,107,88,30,200, 225,380, 328, 286, 216, 316, 332, 86, 108, 73, 23, 285,31]
 	#idx=[328, 80, 86, 225, 286, 352, 380, 119] for tasteless images
 	#idx=[380, 225, 30, 88, 119, 286, 107] for broad lines
 elif subset_name=='scenes':
-	idx=[52, 22]
+	idx=[]#[52, 22]
 '''elif subset_name=='infographics':
 	msk=df['ms_total']>0.5 
 	idx = df.index[msk]'''
@@ -55,10 +55,10 @@ df=df.drop(idx)
 #regression for each separate scale: loop
 reg_results=[]
 y=df['gt']
-features = [f"s{i}" for i in range(41)]
+features = [f"s{i}" for i in range(10)]
 
 
-for i in range(41):
+for i in range(10):
 	#regression
 	x=df[features[i]]
 	#xo=outliers['ms_total']
@@ -71,15 +71,15 @@ for i in range(41):
 
 df_stats = pd.DataFrame(reg_results, columns=['r', 'p'])
 
-df_stats.to_csv('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity_regression.csv', sep='\t')
+df_stats.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity_regression.csv', sep='\t')
 
 
-df['frac']=df['s15']+df['s16']+df['s17']+df['s18']+df['s19']
-outliers['frac']=outliers['s15']+outliers['s16']+df['s17']+df['s18']+df['s19']
+df['frac']=df['s2']+df['s3']+df['s4']+df['s5']+df['s6']
+outliers['frac']=outliers['s2']+outliers['s3']+df['s4']+df['s5']+df['s6']
 x=df['frac']
 slope, intercept, r, p, std_err = stats.linregress(x, y)
-print(subset_name+', 15-19: r=', str(r)+', p='+str(p))
-freqrange='15-19'
+print(subset_name+', 2-6: r=', str(r)+', p='+str(p))
+freqrange='2-6'
 
 
 #regression
@@ -91,17 +91,17 @@ slope, intercept, r, p, std_err = stats.linregress(x, y)
 y1=slope * x + intercept
 plt.clf()
 plt.scatter(x, y)
-plt.xlabel('human ranking',fontsize=16)
-plt.ylabel('multi-scale structural complexity',fontsize=16)
+plt.ylabel('human ranking',fontsize=16)
+plt.xlabel('multi-scale structural complexity',fontsize=16)
 plt.scatter(xo,yo,color='red', linewidth=2, alpha=0.5)
 plt.plot(x, y1, color='orange')
-plt.title(subset_name+', linear regression', fontsize=20)
-plt.title(cg_type+' cg, '+subset_name+' regression (middle scale only - broader).png')
-plt.savefig('mssc_figures_100/'+cg_type+'_'+subset_name+'_regression_'+freqrange+'.png')
-plt.savefig('mssc_figures_eps_100/'+cg_type+'_'+subset_name+'_regression_'+freqrange+'.eps', format='eps')
+plt.xlim([-0.01, 0.17])
+plt.title(subset_name+', linear regression (middle scale)', fontsize=16)
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_'+freqrange+'.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_'+freqrange+'.eps', format='eps')
 
 df_part=df[['gt','frac']]
-df_part.to_csv('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity_mid.csv', sep='\t')
+df_part.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity_mid.csv', sep='\t')
 
 
 #regression full
@@ -113,14 +113,14 @@ slope, intercept, r, p, std_err = stats.linregress(x, y)
 y1=slope * x + intercept
 plt.clf()
 plt.scatter(x, y)
-plt.xlabel('human ranking',fontsize=16)
-plt.ylabel('multi-scale structural complexity',fontsize=16)
+plt.ylabel('human ranking',fontsize=16)
+plt.xlabel('multi-scale structural complexity',fontsize=18)
 plt.scatter(xo,yo,color='red', linewidth=2, alpha=0.5)
 plt.plot(x, y1, color='orange')
-plt.title(subset_name+', linear regression', fontsize=20)
-plt.title(cg_type+' cg, '+subset_name+' regression (total ms).png')
-plt.savefig('mssc_figures_100/'+cg_type+'_'+subset_name+'_regression.png')
-plt.savefig('mssc_figures_eps_100/'+cg_type+'_'+subset_name+'_regression.eps', format='eps')
+plt.xlim([0, 0.35])
+plt.title(subset_name+', linear regression (total ms)', fontsize=16)
+plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression.png')
+plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression.eps', format='eps')
 
 
 '''df['frac']=df['s2']+df['s3']+df['s4']

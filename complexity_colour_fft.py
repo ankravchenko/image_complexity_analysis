@@ -55,7 +55,7 @@ def coarse_grain(img, depth):
     # apply shift of origin to center of image
     dft_shift = np.fft.fftshift(dft)
     mag = np.abs(dft_shift)
-    if mag != 0:
+    if mag.all() != 0:
         spec = np.log(mag) / 20
     else:
         spec=0
@@ -401,10 +401,10 @@ df['ms_total']=complexity_list
 df['ms_total']=df['ms_total']*3
 
 
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
+with open('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
     pickle.dump(df, handle)
 
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
+df.to_csv('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 
 a=complexity_list_partial
@@ -426,14 +426,14 @@ df=df.drop(idx)
 avg_c=df[features].mean().to_numpy()
 plt.clf()
 plt.plot(range(len(avg_c)),avg_c, label='partial complexities averaged, '+subset_name)
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.eps', format='eps')
+plt.savefig('mssc_figures_100/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.png')
+plt.savefig('mssc_figures_eps_100/'+cg_type+'_'+subset_name+'_partial_cmpl_avg.eps', format='eps')
 
 
-with open('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
+with open('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity.pickle', 'wb') as handle:
     pickle.dump(df, handle)
 
-df.to_csv('calculated_mssc/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
+df.to_csv('calculated_mssc_100/'+cg_type+'_'+subset_name+'_complexity.csv', sep='\t')
 
 
 
@@ -472,8 +472,8 @@ plt.xlabel('human ranking',fontsize=16)
 plt.ylabel('multi-scale structural complexity',fontsize=16)
 plt.title(subset_name+', total complexity',fontsize=20)
 plt.legend(loc='lower right')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_complexity_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
+plt.savefig('mssc_figures_100/'+cg_type+'_'+subset_name+'_complexity_total.png')
+plt.savefig('mssc_figures_eps_100/'+cg_type+'_'+subset_name+'_complexity_total.eps', format='eps')
 
 
 
@@ -492,11 +492,11 @@ plt.scatter(xo,yo,color='red', linewidth=2, alpha=0.5)
 plt.plot(x, y1, color='orange')
 plt.title(subset_name+', linear regression', fontsize=20)
 plt.title(cg_type+' cg, '+subset_name+' regression (full set).png')
-plt.savefig('mssc_figures/'+cg_type+'_'+subset_name+'_regression_total.png')
-plt.savefig('mssc_figures_eps/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
+plt.savefig('mssc_figures_100/'+cg_type+'_'+subset_name+'_regression_total.png')
+plt.savefig('mssc_figures_eps_100/'+cg_type+'_'+subset_name+'_regression_total.eps', format='eps')
 
 
-f = open("mssc_figures/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
+f = open("mssc_figures_100/"+cg_type+'_'+subset_name+'_regression_total.log', "w")
 ttt=[slope, intercept, r, p, std_err]
 print("slope\tintercept\tr\tp\tstd_err", end='\n', file=f)
 print(*ttt, sep='\t', end='\n', file=f)
